@@ -25,7 +25,7 @@ impl KerberosUser {
 	
 	pub fn from_ntlm_hash(domain: &str, username: &str, hash: &[u8]) -> Result<KerberosUser,KerberosUserError> {
 		if hash.len() != 16 {
-			let e = KerberosUserError::InvalidRC4Size(hash.len());
+			let e = KerberosUserError::InvalidHashSize(hash.len());
 			return Err(e);
 		}
 		let mut key : [u8;16] = [0;16];
@@ -43,9 +43,37 @@ impl KerberosUser {
 		Ok(user)
 	}
 	
-	pub fn from_aes_key() {
+	pub fn from_aes_key(domain: &str, username: &str, raw_key: &[u8]) -> Result<KerberosUser,KerberosUserError> {
 		// 32 bytes is AES256, 16 bytes is AES128
-		todo!();
+		let key : Key = match raw_key.len() {
+			16 => {
+				let mut key : [u8;16] = [0;16];
+				for i in 0..16 {
+					key[i] = raw_key[i];
+				}
+				Key::AES128Key(key)
+			},
+			32 => {
+				let mut key : [u8;32] = [0;32];
+				for i in 0..32 {
+					key[i] = raw_key[i];
+				}
+				Key::AES256Key(key)
+			},
+			invalid_len => {
+				let e = KerberosUserError::InvalidKeySize(invalid_len);
+				return Err(e);
+			}
+		};
+		
+		let mut user = KerberosUser {
+			domain: domain.to_string(),
+			username: username.to_string(),
+			credential: key,
+			encryption_key: Vec::new(),
+			custom_salt: None
+		};
+		Ok(user)
 	}
 	
 	pub fn set_salt(&mut self, salt : &str) {
@@ -96,5 +124,6 @@ impl KerberosUser {
 
 #[derive(Debug)]
 pub enum KerberosUserError {
-	InvalidRC4Size(usize)
+	InvalidHashSize(usize),
+	InvalidKeySize(usize)
 }

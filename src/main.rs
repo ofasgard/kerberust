@@ -7,10 +7,9 @@ use kerberos_asn1::Asn1Object;
 
 
 fn main() {
-	let mut user = KerberosUser::from_password("<domain>", "<username>", "<password>").unwrap();
-	user.set_salt("DOMAINupn");
+	let key = vec![];
+	let mut user = KerberosUser::from_aes_key("<domain>", "<user>", &key).unwrap();
 	user.generate_encryption_key();
-	println!("{:02X?}", &user.encryption_key);
 	
 	let mut builder = KdcRequestBuilder::new();
 	let asreq = builder.build_asreq(&user);
@@ -18,7 +17,6 @@ fn main() {
 	dbg!(&asreq);
 
 	let response = kerberust::net::send_request("<target>:88", &asreq.build()).unwrap();
-	dbg!(&response);
 	println!("{}", String::from_utf8_lossy(&response));
 	
 	let parse_result = AsRep::parse(&response);
@@ -35,4 +33,6 @@ fn main() {
 }
 
 // TODO:
+// Add a proper ASREQUESTER with error handling for mundane errors and KrbError as well
+// Extract TGT from AsRep
 // Sometimes you have to set the salt manually, because it doesn't match the samAccountName and uses the userPrincipalName instead :(
