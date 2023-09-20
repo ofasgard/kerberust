@@ -1,10 +1,6 @@
 use kerberust::kdc_req::KdcRequestBuilder;
 use kerberust::user::KerberosUser;
-
-use kerberos_asn1::AsRep;
-use kerberos_asn1::KrbError;
-use kerberos_asn1::Asn1Object;
-
+use kerberust::net::KerberosResponse;
 
 fn main() {
 	let key = vec![];
@@ -16,23 +12,26 @@ fn main() {
 	
 	dbg!(&asreq);
 
-	let response = kerberust::net::send_request("<target>:88", &asreq.build()).unwrap();
-	println!("{}", String::from_utf8_lossy(&response));
-	
-	let parse_result = AsRep::parse(&response);
-	match parse_result {
-		Ok(asrep) => {
+	let response = kerberust::net::send_asreq("<target>:88", &asreq).unwrap();
+
+	match response {
+		KerberosResponse::AsRep(asrep) => {
+			println!("Successfully parsed ASREP!");
 			dbg!(asrep);
-		}
-		Err(e) => {
-			dbg!(e);
-			let err = KrbError::parse(&response).expect("couldn't parse asrep or error...");
-			dbg!(err);
-		}
+		},
+		KerberosResponse::KrbError(err) => {
+			println!("Kerberos error {}", err.error_code);
+			if let Some(text) = err.e_text {
+				println!("Error text: {}", text);
+			}
+			if let Some(bytes) = err.e_data {
+				println!("Error data: {:02X?}", bytes);
+			}
+		},
+		KerberosResponse::Raw(bytes) => println!("Failed to parse {} bytes as a Kerberos response.", bytes.len())
 	}
 }
 
 // TODO:
-// Add a proper ASREQUESTER with error handling for mundane errors and KrbError as well
 // Extract TGT from AsRep
 // Sometimes you have to set the salt manually, because it doesn't match the samAccountName and uses the userPrincipalName instead :(

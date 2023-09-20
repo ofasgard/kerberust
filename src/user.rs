@@ -13,7 +13,7 @@ pub struct KerberosUser {
 
 impl KerberosUser {
 	pub fn from_password(domain: &str, username: &str, password: &str) -> Result<KerberosUser,KerberosUserError> {
-		let mut user = KerberosUser {
+		let user = KerberosUser {
 			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: Key::Secret(password.to_string()),
@@ -33,7 +33,7 @@ impl KerberosUser {
 			key[i] = hash[i];
 		}
 	
-		let mut user = KerberosUser {
+		let user = KerberosUser {
 			domain: domain.to_string(),
 			username: username.to_string(),
 			credential: Key::RC4Key(key),
@@ -66,7 +66,7 @@ impl KerberosUser {
 			}
 		};
 		
-		let mut user = KerberosUser {
+		let user = KerberosUser {
 			domain: domain.to_string(),
 			username: username.to_string(),
 			credential: key,

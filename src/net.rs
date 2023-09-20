@@ -1,3 +1,8 @@
+use kerberos_asn1::AsRep;
+use kerberos_asn1::AsReq;
+use kerberos_asn1::KrbError;
+use kerberos_asn1::Asn1Object;
+
 use std::io::Error;
 use std::io::Read;
 use std::io::Write;
@@ -45,4 +50,33 @@ pub fn send_request(server : &str, request : &[u8]) -> Result<Vec<u8>,Error> {
 	conn.read_exact(&mut resp)?;
 	
 	Ok(resp)
+}
+
+
+pub enum KerberosResponse {
+	AsRep(AsRep),
+	KrbError(KrbError),
+	Raw(Vec<u8>)
+}
+
+impl KerberosResponse {
+	pub fn parse(response : &[u8]) -> KerberosResponse {
+		match KrbError::parse(response) {
+			Ok(krb_err) => return KerberosResponse::KrbError(krb_err.1),
+			Err(_) => ()
+		}
+		
+		match AsRep::parse(response) {
+			Ok(asrep) => return KerberosResponse::AsRep(asrep.1),
+			Err(_) => ()
+		}
+	
+		KerberosResponse::Raw(response.to_vec())
+	}
+}
+
+pub fn send_asreq(server : &str, asreq : &AsReq) -> Result<KerberosResponse,Error> {
+	let raw_response = send_request(server, &asreq.build())?;
+	let parsed_response = KerberosResponse::parse(&raw_response);
+	Ok(parsed_response)
 }
