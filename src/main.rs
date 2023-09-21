@@ -13,16 +13,17 @@ fn main() {
 	
 	dbg!(&asreq);
 
-	let response = kerberust::net::send_asreq("<target>:88", &asreq).unwrap();
+	let response = kerberust::net::send_asreq("<domain>:88", &asreq).unwrap();
 
 	match response {
 		KerberosResponse::AsRep(asrep) => {
 			println!("Successfully parsed ASREP!");
 			let ticket = KerberosTicket::from_asrep(&asrep, &user).unwrap();
-			user.set_ticket(ticket);
+			user.set_tgt(ticket);
 			if let Some(tgt) = &user.tgt {
-				dbg!(&tgt.ticket);
-				dbg!(tgt.get_session_key());
+				let tgt_bytes = tgt.dump_to_kirbi(&user.domain, &user.username);
+				std::fs::write("<path>", tgt_bytes).unwrap();
+				println!("Dumped to file");
 			}
 		},
 		KerberosResponse::KrbError(err) => {
@@ -39,7 +40,6 @@ fn main() {
 }
 
 // TODO:
-// Code to convert TGT and SessionKey into a KRBCRED structure, suitable for conversion into a .kirbi file (kerberos_asn1::KrbCred)
 // Sometimes you have to set the salt manually, because it doesn't match the samAccountName and uses the userPrincipalName instead :(
 //	When you get error 24 in response to a bad key, the "error data" part of the KrbError does include the correct salt to use
 

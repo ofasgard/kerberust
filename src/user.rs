@@ -127,15 +127,8 @@ impl KerberosUser {
 		kerberos_crypto::new_kerberos_cipher(etype).unwrap()
 	}
 	
-	pub fn set_ticket(&mut self, ticket : KerberosTicket) {
+	pub fn set_tgt(&mut self, ticket : KerberosTicket) {
 		self.tgt = Some(ticket);
-	}
-	
-	pub fn is_authenticated(&self) -> bool {
-		match self.tgt {
-			Some(_) => true,
-			None => false
-		}
 	}
 }
 
