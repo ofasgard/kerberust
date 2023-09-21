@@ -111,7 +111,7 @@ impl KdcRequestBuilder {
 		let timestamp = PaEncTsEnc::from(Utc::now());
 		let cipher = user.get_cipher();
 		let encrypted_timestamp = cipher.encrypt(&user.encryption_key, KEY_USAGE_AS_REQ_TIMESTAMP, &timestamp.build());
-		let encrypted_data = EncryptedData::new(user.get_etype(), None, encrypted_timestamp);
+		let encrypted_data = EncryptedData::new(user.etype, None, encrypted_timestamp);
 		let padata = PaData::new(PA_ENC_TIMESTAMP, encrypted_data.build());
 		self.padata.push(padata);
 	}
@@ -144,7 +144,7 @@ impl KdcRequestBuilder {
 		self.set_nonce();
 		
 		// Add desired encryption type.
-		self.add_etype(user.get_etype());
+		self.add_etype(user.etype);
 	}
 	
 	fn build_asreq_padata(&mut self, user : &KerberosUser) {

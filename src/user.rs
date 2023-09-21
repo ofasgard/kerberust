@@ -9,6 +9,7 @@ pub struct KerberosUser {
 	pub domain: String,
 	pub username: String,
 	pub credential : Key,
+	pub etype : i32,
 	pub encryption_key : Vec<u8>,
 	pub custom_salt: Option<Vec<u8>>,
 	pub tgt : Option<KerberosTicket>
@@ -20,6 +21,7 @@ impl KerberosUser {
 			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: Key::Secret(password.to_string()),
+			etype: AES256_CTS_HMAC_SHA1_96,
 			encryption_key: Vec::new(),
 			custom_salt: None,
 			tgt: None
@@ -41,6 +43,7 @@ impl KerberosUser {
 			domain: domain.to_string(),
 			username: username.to_string(),
 			credential: Key::RC4Key(key),
+			etype: RC4_HMAC,
 			encryption_key: Vec::new(),
 			custom_salt: None,
 			tgt: None
@@ -49,32 +52,38 @@ impl KerberosUser {
 	}
 	
 	pub fn from_aes_key(domain: &str, username: &str, raw_key: &[u8]) -> Result<KerberosUser,KerberosUserError> {
+		let key : Key;
+		let etype : i32;
+	
 		// 32 bytes is AES256, 16 bytes is AES128
-		let key : Key = match raw_key.len() {
+		match raw_key.len() {
 			16 => {
-				let mut key : [u8;16] = [0;16];
+				let mut key_bytes : [u8;16] = [0;16];
 				for i in 0..16 {
-					key[i] = raw_key[i];
+					key_bytes[i] = raw_key[i];
 				}
-				Key::AES128Key(key)
+				key = Key::AES128Key(key_bytes);
+				etype = AES128_CTS_HMAC_SHA1_96;
 			},
 			32 => {
-				let mut key : [u8;32] = [0;32];
+				let mut key_bytes : [u8;32] = [0;32];
 				for i in 0..32 {
-					key[i] = raw_key[i];
+					key_bytes[i] = raw_key[i];
 				}
-				Key::AES256Key(key)
+				key = Key::AES256Key(key_bytes);
+				etype = AES256_CTS_HMAC_SHA1_96;
 			},
 			invalid_len => {
 				let e = KerberosUserError::InvalidKeySize(invalid_len);
 				return Err(e);
 			}
-		};
+		}
 		
 		let user = KerberosUser {
 			domain: domain.to_string(),
 			username: username.to_string(),
 			credential: key,
+			etype: etype,
 			encryption_key: Vec::new(),
 			custom_salt: None,
 			tgt: None
@@ -94,10 +103,14 @@ impl KerberosUser {
 		}
 	}
 
+	pub fn get_cipher(&self) -> Box<dyn KerberosCipher> {
+		kerberos_crypto::new_kerberos_cipher(self.etype).unwrap()
+	}
+
 	pub fn generate_encryption_key(&mut self) {
-		let cipher = self.get_cipher();
 		match &self.credential {
 			Key::Secret(password) => {
+				let cipher = self.get_cipher();
 				let salt = self.get_salt();
 				self.encryption_key = cipher.generate_key_from_string(&password, &salt);
 			},
@@ -111,20 +124,6 @@ impl KerberosUser {
 				self.encryption_key = key.to_vec();
 			}
 		}
-	}
-
-	pub fn get_etype(&self) -> i32 {
-		match &self.credential {
-			Key::Secret(_) => AES256_CTS_HMAC_SHA1_96,
-			Key::RC4Key(_) => RC4_HMAC,
-			Key::AES128Key(_) => AES128_CTS_HMAC_SHA1_96,
-			Key::AES256Key(_) =>AES256_CTS_HMAC_SHA1_96
-		}
-	}
-	
-	pub fn get_cipher(&self) -> Box<dyn KerberosCipher> {
-		let etype = self.get_etype();
-		kerberos_crypto::new_kerberos_cipher(etype).unwrap()
 	}
 	
 	pub fn set_tgt(&mut self, ticket : KerberosTicket) {
