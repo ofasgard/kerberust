@@ -1,5 +1,6 @@
 use kerberust::kdc_req::KdcRequestBuilder;
 use kerberust::user::KerberosUser;
+use kerberust::ticket::KerberosTicket;
 use kerberust::net::KerberosResponse;
 
 fn main() {
@@ -17,9 +18,12 @@ fn main() {
 	match response {
 		KerberosResponse::AsRep(asrep) => {
 			println!("Successfully parsed ASREP!");
-			user.decrypt_ticket(&asrep).unwrap();
-			dbg!(&user.tgt);
-			dbg!(&user.tgt_session_key);
+			let ticket = KerberosTicket::from_asrep(&asrep, &user).unwrap();
+			user.set_ticket(ticket);
+			if let Some(tgt) = &user.tgt {
+				dbg!(&tgt.ticket);
+				dbg!(tgt.get_session_key());
+			}
 		},
 		KerberosResponse::KrbError(err) => {
 			println!("Kerberos error {}", err.error_code);
@@ -35,6 +39,7 @@ fn main() {
 }
 
 // TODO:
-// Code to convert TGT and SessionKey into a KRBCRED structure, suitable for conversion into a .kirbi file
+// Code to convert TGT and SessionKey into a KRBCRED structure, suitable for conversion into a .kirbi file (kerberos_asn1::KrbCred)
 // Sometimes you have to set the salt manually, because it doesn't match the samAccountName and uses the userPrincipalName instead :(
 //	When you get error 24 in response to a bad key, the "error data" part of the KrbError does include the correct salt to use
+

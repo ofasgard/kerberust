@@ -1,14 +1,9 @@
-use kerberos_asn1::Ticket;
-use kerberos_asn1::EncryptionKey;
-use kerberos_asn1::AsRep;
-use kerberos_asn1::EncAsRepPart;
-use kerberos_asn1::Asn1Object;
+use crate::ticket::KerberosTicket;
 
 use kerberos_crypto::Key;
 use kerberos_crypto::KerberosCipher;
 
 use kerberos_constants::etypes::{AES128_CTS_HMAC_SHA1_96,AES256_CTS_HMAC_SHA1_96,RC4_HMAC};
-use kerberos_constants::key_usages::KEY_USAGE_AS_REP_ENC_PART;
 
 pub struct KerberosUser {
 	pub domain: String,
@@ -16,8 +11,7 @@ pub struct KerberosUser {
 	pub credential : Key,
 	pub encryption_key : Vec<u8>,
 	pub custom_salt: Option<Vec<u8>>,
-	pub tgt : Option<Ticket>,
-	pub tgt_session_key : Option<EncryptionKey>
+	pub tgt : Option<KerberosTicket>
 }
 
 impl KerberosUser {
@@ -28,8 +22,7 @@ impl KerberosUser {
 			credential: Key::Secret(password.to_string()),
 			encryption_key: Vec::new(),
 			custom_salt: None,
-			tgt: None,
-			tgt_session_key: None
+			tgt: None
 		};
 		Ok(user)
 	}
@@ -50,8 +43,7 @@ impl KerberosUser {
 			credential: Key::RC4Key(key),
 			encryption_key: Vec::new(),
 			custom_salt: None,
-			tgt: None,
-			tgt_session_key: None
+			tgt: None
 		};
 		Ok(user)
 	}
@@ -85,8 +77,7 @@ impl KerberosUser {
 			credential: key,
 			encryption_key: Vec::new(),
 			custom_salt: None,
-			tgt: None,
-			tgt_session_key: None
+			tgt: None
 		};
 		Ok(user)
 	}
@@ -136,33 +127,20 @@ impl KerberosUser {
 		kerberos_crypto::new_kerberos_cipher(etype).unwrap()
 	}
 	
-	pub fn decrypt_ticket(&mut self, asrep : &AsRep) -> Result<(),KerberosUserError> {
-		// Extracted the ecnrypted part of the ASREP response and decrypt it with our key.
-		let encrypted_data : Vec<u8> = asrep.enc_part.cipher.to_vec();
-		let decrypted_data = match self.get_cipher().decrypt(&self.encryption_key, KEY_USAGE_AS_REP_ENC_PART, &encrypted_data) {
-			Ok(data) => data,
-			Err(e) => return Err(KerberosUserError::TicketDecryptionError(e))
-		};
-		
-		// Parse the decrypted data into an EncAsRepPart.
-		let parsed_data = match EncAsRepPart::parse(&decrypted_data) {
-			Ok(data) => data,
-			Err(e) => return Err(KerberosUserError::TicketParsingError(e))
-		};
-		let enc_as_rep_part = parsed_data.1;
-		
-		// Extract the ticket and the decrypted session key.
-		self.tgt = Some(asrep.ticket.clone());
-		self.tgt_session_key = Some(enc_as_rep_part.key.clone());
-		
-		Ok(())
+	pub fn set_ticket(&mut self, ticket : KerberosTicket) {
+		self.tgt = Some(ticket);
+	}
+	
+	pub fn is_authenticated(&self) -> bool {
+		match self.tgt {
+			Some(_) => true,
+			None => false
+		}
 	}
 }
 
 #[derive(Debug)]
 pub enum KerberosUserError {
 	InvalidHashSize(usize),
-	InvalidKeySize(usize),
-	TicketDecryptionError(kerberos_crypto::Error),
-	TicketParsingError(kerberos_asn1::Error)
+	InvalidKeySize(usize)
 }
