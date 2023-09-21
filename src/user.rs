@@ -136,23 +136,33 @@ impl KerberosUser {
 		kerberos_crypto::new_kerberos_cipher(etype).unwrap()
 	}
 	
-	pub fn decrypt_ticket(&mut self, asrep : &AsRep) {
+	pub fn decrypt_ticket(&mut self, asrep : &AsRep) -> Result<(),KerberosUserError> {
 		// Extracted the ecnrypted part of the ASREP response and decrypt it with our key.
 		let encrypted_data : Vec<u8> = asrep.enc_part.cipher.to_vec();
-		let decrypted_data = self.get_cipher().decrypt(&self.encryption_key, KEY_USAGE_AS_REP_ENC_PART, &encrypted_data).unwrap();
+		let decrypted_data = match self.get_cipher().decrypt(&self.encryption_key, KEY_USAGE_AS_REP_ENC_PART, &encrypted_data) {
+			Ok(data) => data,
+			Err(e) => return Err(KerberosUserError::TicketDecryptionError(e))
+		};
 		
 		// Parse the decrypted data into an EncAsRepPart.
-		let parsed_data = EncAsRepPart::parse(&decrypted_data).unwrap();
+		let parsed_data = match EncAsRepPart::parse(&decrypted_data) {
+			Ok(data) => data,
+			Err(e) => return Err(KerberosUserError::TicketParsingError(e))
+		};
 		let enc_as_rep_part = parsed_data.1;
 		
 		// Extract the ticket and the decrypted session key.
 		self.tgt = Some(asrep.ticket.clone());
 		self.tgt_session_key = Some(enc_as_rep_part.key.clone());
+		
+		Ok(())
 	}
 }
 
 #[derive(Debug)]
 pub enum KerberosUserError {
 	InvalidHashSize(usize),
-	InvalidKeySize(usize)
+	InvalidKeySize(usize),
+	TicketDecryptionError(kerberos_crypto::Error),
+	TicketParsingError(kerberos_asn1::Error)
 }
