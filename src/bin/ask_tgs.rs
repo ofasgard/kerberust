@@ -8,30 +8,17 @@ use kerberust::net::KerberosResponse;
 
 /// A tool to request a specific service ticket from the KDC, using credentials.
 
-const USERNAME : &str = "<user>";
-const DOMAIN : &str = "<domain>";
+fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, output_path : &str) {
+	let connection_str = format!("{}:{}", server, port);
+	let spn_vec = spn.split("/").map(|s| s.to_string()).collect();
 
-const TARGET : &str = "<target>:88";
-
-const SPN : (&str,&str) = ("<spn>", "<spn>");
-
-const OUTPUT : &str = "<path>";
-
-fn main() {
-	// Process credentials and generate user encryption key.
-	// Currently using hardcoded credentials rather than parameters (TODO)
-	let key : Vec<u8> = vec![];
-	let mut user = KerberosUser::from_aes_key(DOMAIN, USERNAME, &key).unwrap();
-	user.generate_encryption_key();
-	
 	// Build an ASREQ request.
 	let mut builder = KdcRequestBuilder::new();
 	let asreq = builder.build_asreq(&user);
 	
 	// Send the ASREQ request.
-	// Currently the target is hardcoded rather than supplied by parameter (TODO)
 	println!("[+] Sending ASREQ...");
-	let asreq_response = match kerberust::net::send_asreq(TARGET, &asreq) {
+	let asreq_response = match kerberust::net::send_asreq(&connection_str, &asreq) {
 		Ok(response) => response,
 		Err(e) => {
 			println!("[-] Failed to send ASREQ: {}", e.to_string());
@@ -79,17 +66,13 @@ fn main() {
 	user.set_tgt(tgt);
 	
 	// Build a TGSREQ request.
-	// Currently using a hardcoded SPN rather than one supplied as a parameter (TODO)
-	let spn = vec![SPN.0.to_string(), SPN.1.to_string()];
-	
 	let mut builder = KdcRequestBuilder::new();
 	let tgt = &user.tgt.as_ref().unwrap();	// We just set the ticket, so it's OK to unwrap.
-	let tgsreq = builder.build_tgsreq(&user, tgt, &spn, &user.domain);
+	let tgsreq = builder.build_tgsreq(&user, tgt, &spn_vec, &user.domain);
 	
 	// Send the TGSREQ request.
-	// Currently the target is hardcoded rather than supplied by parameter (TODO)
 	println!("[+] Sending TGSREQ...");
-	let tgsreq_response = match kerberust::net::send_tgsreq(TARGET, &tgsreq) {
+	let tgsreq_response = match kerberust::net::send_tgsreq(&connection_str, &tgsreq) {
 		Ok(response) => response,
 		Err(e) => {
 			println!("[-] Failed to send TGSREQ: {}", e.to_string());
@@ -134,10 +117,25 @@ fn main() {
 	};
 	
 	// Finally, dump the service ticket to a file.
-	// Currently the path is hardcoded rather than supplied by parameter (TODO)
 	println!("[+] Successfully parsed service ticket!");
-	let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn.join("/"));
-	std::fs::write(OUTPUT, service_ticket_bytes).unwrap();
+	let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn);
+	std::fs::write(output_path, service_ticket_bytes).unwrap();
 	
-	println!("[!] Written to '{}'", OUTPUT);
+	println!("[!] Written to '{}'", output_path);
+}
+
+fn main() {
+	// Hardcoded parameters (TODO)
+	let path = "<path>";
+	let server = "<server>";
+	let port = 88;
+	let domain = "<domain>";
+	let username = "<user>";
+	let spn = "http/x.somedomain.local";
+	let key : Vec<u8> = vec![];
+
+	let mut user = KerberosUser::from_aes_key(domain, username, &key).unwrap();
+	user.generate_encryption_key();
+	
+	ask_tgs(&mut user, spn, server, port, path);
 }
