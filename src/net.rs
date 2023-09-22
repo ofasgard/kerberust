@@ -1,5 +1,7 @@
-use kerberos_asn1::AsRep;
 use kerberos_asn1::AsReq;
+use kerberos_asn1::AsRep;
+use kerberos_asn1::TgsReq;
+use kerberos_asn1::TgsRep;
 use kerberos_asn1::KrbError;
 use kerberos_asn1::Asn1Object;
 
@@ -55,6 +57,7 @@ pub fn send_request(server : &str, request : &[u8]) -> Result<Vec<u8>,Error> {
 
 pub enum KerberosResponse {
 	AsRep(AsRep),
+	TgsRep(TgsRep),
 	KrbError(KrbError),
 	Raw(Vec<u8>)
 }
@@ -70,6 +73,11 @@ impl KerberosResponse {
 			Ok(asrep) => return KerberosResponse::AsRep(asrep.1),
 			Err(_) => ()
 		}
+		
+		match TgsRep::parse(response) {
+			Ok(tgsrep) => return KerberosResponse::TgsRep(tgsrep.1),
+			Err(_) => ()
+		}
 	
 		KerberosResponse::Raw(response.to_vec())
 	}
@@ -77,6 +85,12 @@ impl KerberosResponse {
 
 pub fn send_asreq(server : &str, asreq : &AsReq) -> Result<KerberosResponse,Error> {
 	let raw_response = send_request(server, &asreq.build())?;
+	let parsed_response = KerberosResponse::parse(&raw_response);
+	Ok(parsed_response)
+}
+
+pub fn send_tgsreq(server : &str, tgsreq : &TgsReq) -> Result<KerberosResponse,Error> {
+	let raw_response = send_request(server, &tgsreq.build())?;
 	let parsed_response = KerberosResponse::parse(&raw_response);
 	Ok(parsed_response)
 }

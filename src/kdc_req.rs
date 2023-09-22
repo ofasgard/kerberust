@@ -114,8 +114,11 @@ impl KdcRequestBuilder {
 			name_string: vec![user.username.to_string()]
 		};
 		
-		// Encrypt the Authenticator with the user's cipher and key.
-		let encrypted_authenticator = user.get_cipher().encrypt(&user.encryption_key, KEY_USAGE_TGS_REQ_AUTHEN, &authenticator.build());
+		// Encrypt the Authenticator with the correct cipher and the session key.
+		let etype = ticket.get_session_key().keytype;
+		let session_key = ticket.get_session_key().keyvalue;
+		let cipher = kerberos_crypto::new_kerberos_cipher(etype).unwrap();
+		let encrypted_authenticator = cipher.encrypt(&session_key, KEY_USAGE_TGS_REQ_AUTHEN, &authenticator.build());
 		let encrypted_data = EncryptedData {
 			etype: user.etype, 
 			kvno: None,

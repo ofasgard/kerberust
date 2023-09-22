@@ -36,6 +36,10 @@ fn main() {
 				println!("Dumped to file");
 			}
 		},
+		KerberosResponse::TgsRep(_) => {
+			println!("Received a TGS-REP in response to an AS-REQ");
+			return;
+		}
 		KerberosResponse::KrbError(err) => {
 			println!("Kerberos error {}", &err.error_code);
 			if let Some(text) = &err.e_text {
@@ -67,5 +71,37 @@ fn main() {
 	let mut builder = KdcRequestBuilder::new();
 	let ticket = &user.tgt.as_ref().unwrap();
 	let tgsreq = builder.build_tgsreq(&user, ticket, &spn, &user.domain);
-	dbg!(tgsreq);
+	
+	dbg!(&tgsreq);
+	
+	let response = kerberust::net::send_tgsreq(TARGET, &tgsreq).unwrap();
+	match response {
+		KerberosResponse::AsRep(_) => {
+			println!("Received a AS-REP in response to a TGS-REQ");
+			return
+		},
+		KerberosResponse::TgsRep(tgsrep) => {
+			println!("Successfully parsed TGSREP!");
+			dbg!(tgsrep);
+		}
+		KerberosResponse::KrbError(err) => {
+			println!("Kerberos error {}", &err.error_code);
+			if let Some(text) = &err.e_text {
+				println!("Error text: {}", text);
+				return;
+			}
+			if let Some(bytes) = &err.e_data {
+				println!("Error data: {:02X?}", bytes);
+				return;
+			}
+			if let Ok(salt) = kdc_err::parse_salt(&err) {
+				println!("Desired salt: {}", salt);
+				return;
+			}
+		},
+		KerberosResponse::Raw(bytes) => {
+			println!("Failed to parse {} bytes as a Kerberos response.", bytes.len());
+			return;
+		}
+	}
 }
