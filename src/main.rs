@@ -38,14 +38,20 @@ fn main() {
 			println!("Kerberos error {}", &err.error_code);
 			if let Some(text) = &err.e_text {
 				println!("Error text: {}", text);
+				return;
 			}
 			if let Some(bytes) = &err.e_data {
 				println!("Error data: {:02X?}", bytes);
+				return;
 			}
 			if let Ok(salt) = kdc_err::parse_salt(&err) {
 				println!("Desired salt: {}", salt);
+				return;
 			}
 		},
-		KerberosResponse::Raw(bytes) => println!("Failed to parse {} bytes as a Kerberos response.", bytes.len())
+		KerberosResponse::Raw(bytes) => {
+			println!("Failed to parse {} bytes as a Kerberos response.", bytes.len());
+			return;
+		}
 	}	
 }
