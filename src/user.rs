@@ -40,7 +40,7 @@ impl KerberosUser {
 		}
 	
 		let user = KerberosUser {
-			domain: domain.to_string(),
+			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: Key::RC4Key(key),
 			etype: RC4_HMAC,
@@ -80,7 +80,7 @@ impl KerberosUser {
 		}
 		
 		let user = KerberosUser {
-			domain: domain.to_string(),
+			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: key,
 			etype: etype,
@@ -128,6 +128,13 @@ impl KerberosUser {
 	
 	pub fn set_tgt(&mut self, ticket : KerberosTicket) {
 		self.tgt = Some(ticket);
+	}
+	
+	pub fn is_authenticated(&self) -> bool {
+		match &self.tgt {
+			Some(_) => true,
+			None => false
+		}
 	}
 }
 

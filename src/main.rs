@@ -8,8 +8,10 @@ use kerberust::net::KerberosResponse;
 const USERNAME : &str = "<user>";
 const DOMAIN : &str = "<domain>";
 
-const TARGET : &str = "<domain>:88";
+const TARGET : &str = "<target>:88";
 const PATH : &str = "<path>";
+
+const SPN : (&str,&str) = ("<spn>", "<spn>");
 
 fn main() {
 	let key : Vec<u8> = vec![];
@@ -54,4 +56,16 @@ fn main() {
 			return;
 		}
 	}	
+	
+	if !user.is_authenticated() {
+		println!("User has no ticket?? Cannot proceed.");
+		return;
+	}
+	
+	let spn = vec![SPN.0.to_string(), SPN.1.to_string()];
+	
+	let mut builder = KdcRequestBuilder::new();
+	let ticket = &user.tgt.as_ref().unwrap();
+	let tgsreq = builder.build_tgsreq(&user, ticket, &spn, &user.domain);
+	dbg!(tgsreq);
 }

@@ -1,21 +1,26 @@
 use crate::user::KerberosUser;
+use crate::ticket::KerberosTicket;
 
 use kerberos_asn1::KdcReqBody;
 use kerberos_asn1::AsReq;
+use kerberos_asn1::ApReq;
+use kerberos_asn1::TgsReq;
 use kerberos_asn1::PaData;
 use kerberos_asn1::KerbPaPacRequest;
 use kerberos_asn1::PaEncTsEnc;
 use kerberos_asn1::EncryptedData;
 use kerberos_asn1::PrincipalName;
+use kerberos_asn1::ApOptions;
+use kerberos_asn1::Authenticator;
 use kerberos_asn1::Asn1Object;
 
-use kerberos_constants::kdc_options::{FORWARDABLE,PROXIABLE,RENEWABLE};
-use kerberos_constants::principal_names::NT_PRINCIPAL;
+use kerberos_constants::kdc_options::{CANONICALIZE,FORWARDABLE,PROXIABLE,RENEWABLE,RENEWABLE_OK};
+use kerberos_constants::message_types::{KRB_AS_REQ,KRB_AP_REQ,KRB_TGS_REQ};
+use kerberos_constants::key_usages::{KEY_USAGE_AS_REQ_TIMESTAMP,KEY_USAGE_TGS_REQ_AUTHEN};
+use kerberos_constants::etypes::{RC4_HMAC,DES_CBC_MD5};
+use kerberos_constants::pa_data_types::{PA_PAC_REQUEST,PA_ENC_TIMESTAMP,PA_TGS_REQ};
+use kerberos_constants::principal_names::{NT_PRINCIPAL,NT_SRV_INST};
 use kerberos_constants::protocol_version::PVNO;
-use kerberos_constants::message_types::KRB_AS_REQ;
-use kerberos_constants::pa_data_types::PA_PAC_REQUEST;
-use kerberos_constants::pa_data_types::PA_ENC_TIMESTAMP;
-use kerberos_constants::key_usages::KEY_USAGE_AS_REQ_TIMESTAMP;
 
 use chrono::DateTime;
 use chrono::Duration;
@@ -46,27 +51,23 @@ impl KdcRequestBuilder {
 	}
 	
 	fn set_realm(&mut self, realm : &str) {
-		self.body.realm = realm.to_string()
+		self.body.realm = realm.to_string();
 	}
 	
-	fn set_cname(&mut self, name : Vec<String>) {
+	fn set_cname(&mut self, principal_type : i32, name : Vec<String>) {
 		let principal = PrincipalName {
-			name_type: NT_PRINCIPAL,
+			name_type: principal_type,
 			name_string: name
 		};
 		self.body.cname = Some(principal);
 	}
 	
-	fn set_sname(&mut self, name : Vec<String>) {
+	fn set_sname(&mut self, principal_type : i32, name : Vec<String>) {
 		let principal = PrincipalName {
-			name_type: NT_PRINCIPAL,
+			name_type: principal_type,
 			name_string: name
 		};
 		self.body.sname = Some(principal);
-	}
-	
-	fn set_from(&mut self, time : DateTime<Utc>) {
-		self.body.from = Some(time.into());
 	}
 	
 	fn set_till(&mut self, time : DateTime<Utc>) {
@@ -83,18 +84,6 @@ impl KdcRequestBuilder {
 	
 	fn add_etype(&mut self, etype : i32) {
 		self.body.etypes.push(etype);
-	}
-	
-	fn set_address(&mut self) {
-		todo!()
-	}
-	
-	fn set_enc_authorization_data(&mut self) {
-		todo!()
-	}
-	
-	fn set_additional_tickets(&mut self) {
-		todo!()
 	}
 }
 
@@ -115,6 +104,37 @@ impl KdcRequestBuilder {
 		let padata = PaData::new(PA_ENC_TIMESTAMP, encrypted_data.build());
 		self.padata.push(padata);
 	}
+	
+	fn add_apreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket) {
+		// Build an Authenticator for the provided user.
+		let mut authenticator = Authenticator::default();
+		authenticator.crealm = user.domain.to_string();
+		authenticator.cname = PrincipalName {
+			name_type: NT_PRINCIPAL,
+			name_string: vec![user.username.to_string()]
+		};
+		
+		// Encrypt the Authenticator with the user's cipher and key.
+		let encrypted_authenticator = user.get_cipher().encrypt(&user.encryption_key, KEY_USAGE_TGS_REQ_AUTHEN, &authenticator.build());
+		let encrypted_data = EncryptedData {
+			etype: user.etype, 
+			kvno: None,
+			cipher: encrypted_authenticator
+		};
+	
+		// Build the APREQ with the ticket and encrypted authenticator.
+		let apreq = ApReq {
+			pvno: PVNO,
+			msg_type: KRB_AP_REQ,
+			ap_options: ApOptions::default(),
+			ticket: ticket.ticket.clone(),
+			authenticator: encrypted_data
+		};
+		
+		// Add the PaData.
+		let padata = PaData::new(PA_TGS_REQ, apreq.build());
+		self.padata.push(padata);
+	}
 }
 
 // ASREQ
@@ -130,10 +150,10 @@ impl KdcRequestBuilder {
 		self.set_realm(&user.domain);
 		
 		// Set cname to username.
-		self.set_cname(vec![user.username.to_string()]);
+		self.set_cname(NT_PRINCIPAL, vec![user.username.to_string()]);
 		
 		// Set sname to the krbtgt SPN ("krbtgt/somedomain.local").
-		self.set_sname(vec!["krbtgt".to_string(), user.domain.to_string()]);
+		self.set_sname(NT_PRINCIPAL, vec!["krbtgt".to_string(), user.domain.to_string()]);
 		
 		// Set expiry dates at some point in the future.
 		let expiry = Utc::now() + Duration::days(90);
@@ -163,6 +183,53 @@ impl KdcRequestBuilder {
 			msg_type: KRB_AS_REQ,
 			padata: Some(self.padata.clone()),
 			req_body: self.body.clone()
+		}
+	}
+}
+
+// TGSREQ
+
+impl KdcRequestBuilder {	
+	fn build_tgsreq_body(&mut self, user : &KerberosUser, spn : &Vec<String>, domain : &str) {
+		// Set KDC options.
+		self.set_kdc_option(CANONICALIZE);
+		self.set_kdc_option(FORWARDABLE);
+		self.set_kdc_option(RENEWABLE);
+		self.set_kdc_option(RENEWABLE_OK);
+		
+		// Set realm to provided domain.
+		self.set_realm(domain);
+		
+		//Set sname to the SPN we want to request.
+		self.set_sname(NT_SRV_INST, spn.to_vec());
+		
+		// Set expiry dates at some point in the future.
+		let expiry = Utc::now() + Duration::days(90);
+		self.set_till(expiry);
+		
+		// Set a random nonce.
+		self.set_nonce();
+		
+		// Add desired encryption type, along with a selection of others.
+		self.add_etype(RC4_HMAC);
+		self.add_etype(DES_CBC_MD5);
+		self.add_etype(user.etype);
+	}
+	
+	fn build_tgsreq_padata(&mut self, user : &KerberosUser, ticket : &KerberosTicket) {
+		// Add an APREQ to padata.
+		self.add_apreq(user, ticket);
+	}
+	
+	pub fn build_tgsreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket, spn : &Vec<String>, domain : &str) -> TgsReq {
+		self.build_tgsreq_body(user, spn, domain);
+		self.build_tgsreq_padata(user, ticket);
+		
+		TgsReq {
+			pvno: PVNO,
+			msg_type: KRB_TGS_REQ,
+			padata: Some(self.padata.clone()),
+			req_body : self.body.clone()
 		}
 	}
 }
