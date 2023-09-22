@@ -6,7 +6,10 @@ use kerberust::ticket::KerberosTicket;
 use kerberust::ticket::KerberosTicketError;
 use kerberust::net::KerberosResponse;
 
-/// A tool to request a specific service ticket from the KDC, using credentials.
+use clap::Command;
+use clap::arg;
+
+/// A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.
 
 fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, output_path : &str) {
 	let connection_str = format!("{}:{}", server, port);
@@ -125,15 +128,34 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 }
 
 fn main() {
-	// Hardcoded parameters (TODO)
-	let path = "<path>";
-	let server = "<server>";
-	let port = 88;
-	let domain = "<domain>";
-	let username = "<user>";
-	let spn = "http/x.somedomain.local";
+	// Only AES key is supported for now, and it's hardcoded (TODO)
 	let key : Vec<u8> = vec![];
-
+	
+	let matches = Command::new("AskTgs")
+		.about("A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.")
+		.arg(arg!(--domain <DOMAIN>).required(true))
+		.arg(arg!(--user <USER>).required(true))
+		.arg(arg!(--spn <SPN>).required(true))
+		.arg(arg!(--outfile <PATH>).required(true))
+		.arg(arg!(--kdc <HOST>).required(false))
+		.arg(arg!(--port <PORT>).required(false))
+		.get_matches();
+	
+	let domain = matches.get_one::<String>("domain").unwrap();
+	let username = matches.get_one::<String>("user").unwrap();
+	let spn = matches.get_one::<String>("spn").unwrap();
+	let path = matches.get_one::<String>("outfile").unwrap();
+	
+	let server = match matches.get_one::<String>("kdc") {
+		Some(server_str) => server_str,
+		None => domain
+	};
+	
+	let port = match matches.get_one::<i32>("port") {
+		Some(port_int) => *port_int,
+		None => 88
+	};
+	
 	let mut user = KerberosUser::from_aes_key(domain, username, &key).unwrap();
 	user.generate_encryption_key();
 	
