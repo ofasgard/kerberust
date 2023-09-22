@@ -7,13 +7,13 @@ use kerberust::net::KerberosResponse;
 
 const USERNAME : &str = "<user>";
 const DOMAIN : &str = "<domain>";
-const KEY : Vec<u8> = vec![];
 
 const TARGET : &str = "<domain>:88";
 const PATH : &str = "<path>";
 
 fn main() {
-	let mut user = KerberosUser::from_aes_key(DOMAIN, USERNAME, &KEY).unwrap();
+	let key : Vec<u8> = vec![];
+	let mut user = KerberosUser::from_aes_key(DOMAIN, USERNAME, &key).unwrap();
 	user.generate_encryption_key();
 	
 	let mut builder = KdcRequestBuilder::new();
