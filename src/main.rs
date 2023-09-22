@@ -9,7 +9,8 @@ const USERNAME : &str = "<user>";
 const DOMAIN : &str = "<domain>";
 
 const TARGET : &str = "<target>:88";
-const PATH : &str = "<path>";
+const TGT_PATH : &str = "<path>";
+const TGS_PATH : &str = "<path>";
 
 const SPN : (&str,&str) = ("<spn>", "<spn>");
 
@@ -32,7 +33,7 @@ fn main() {
 			user.set_tgt(ticket);
 			if let Some(tgt) = &user.tgt {
 				let tgt_bytes = tgt.dump_to_kirbi(&user.domain, &user.username);
-				std::fs::write(PATH, tgt_bytes).unwrap();
+				std::fs::write(TGT_PATH, tgt_bytes).unwrap();
 				println!("Dumped to file");
 			}
 		},
@@ -82,7 +83,10 @@ fn main() {
 		},
 		KerberosResponse::TgsRep(tgsrep) => {
 			println!("Successfully parsed TGSREP!");
-			dbg!(tgsrep);
+			let service_ticket = KerberosTicket::from_tgsrep(&tgsrep, &ticket).unwrap();
+			let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn.join("/"));
+			std::fs::write(TGS_PATH, service_ticket_bytes).unwrap();
+			println!("Dumped to file");
 		}
 		KerberosResponse::KrbError(err) => {
 			println!("Kerberos error {}", &err.error_code);

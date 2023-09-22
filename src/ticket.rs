@@ -4,7 +4,9 @@ use kerberos_asn1::Ticket;
 use kerberos_asn1::EncKdcRepPart;
 use kerberos_asn1::EncryptionKey;
 use kerberos_asn1::AsRep;
+use kerberos_asn1::TgsRep;
 use kerberos_asn1::EncAsRepPart;
+use kerberos_asn1::EncTgsRepPart;
 use kerberos_asn1::PrincipalName;
 use kerberos_asn1::KrbCredInfo;
 use kerberos_asn1::EncKrbCredPart;
@@ -14,6 +16,7 @@ use kerberos_asn1::Asn1Object;
 
 use kerberos_constants::protocol_version::PVNO;
 use kerberos_constants::etypes::NO_ENCRYPTION;
+use kerberos_constants::key_usages::KEY_USAGE_TGS_REP_ENC_PART_SESSION_KEY;
 use kerberos_constants::key_usages::KEY_USAGE_AS_REP_ENC_PART;
 use kerberos_constants::principal_names::NT_PRINCIPAL;
 use kerberos_constants::message_types::KRB_CRED;
@@ -29,7 +32,7 @@ pub struct KerberosTicket {
 
 impl KerberosTicket {
 	pub fn from_asrep(asrep : &AsRep, user : &KerberosUser) -> Result<KerberosTicket,KerberosTicketError> {
-		// Extracted the encrypted part of the ASREP response and decrypt it with the user's key.
+		// Extract the encrypted part of the ASREP response and decrypt it with the user's key.
 		let encrypted_data : Vec<u8> = asrep.enc_part.cipher.to_vec();
 		let decrypted_data = match user.get_cipher().decrypt(&user.encryption_key, KEY_USAGE_AS_REP_ENC_PART, &encrypted_data) {
 			Ok(data) => data,
@@ -49,6 +52,35 @@ impl KerberosTicket {
 			response: enc_as_rep_part.into()
 		};
 				
+		Ok(ticket)
+	}
+	
+	pub fn from_tgsrep(tgsrep : &TgsRep, tgt : &KerberosTicket) -> Result<KerberosTicket,KerberosTicketError> {
+		// Prepare the TGT cipher and session key.
+		let etype = tgt.get_session_key().keytype;
+		let session_key = tgt.get_session_key().keyvalue;
+		let cipher = kerberos_crypto::new_kerberos_cipher(etype).unwrap();
+	
+		// Extract the encrypted part of the TGSREP response and decrypt it with the TGT session key.
+		let encrypted_data : Vec<u8> = tgsrep.enc_part.cipher.to_vec();
+		let decrypted_data = match cipher.decrypt(&session_key, KEY_USAGE_TGS_REP_ENC_PART_SESSION_KEY, &encrypted_data) {
+			Ok(data) => data,
+			Err(e) => return Err(KerberosTicketError::DecryptionError(e))
+		};
+		
+		// Parse the decrypted data into an EncTgsRepPart.
+		let parsed_data = match EncTgsRepPart::parse(&decrypted_data) {
+			Ok(data) => data,
+			Err(e) => return Err(KerberosTicketError::ParsingError(e))
+		};
+		let enc_tgs_rep_part = parsed_data.1;
+		
+		// Extract the ticket and decrypted session key.
+		let ticket = KerberosTicket {
+			ticket: tgsrep.ticket.clone(),
+			response: enc_tgs_rep_part.into()
+		};		
+		
 		Ok(ticket)
 	}
 }
