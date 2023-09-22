@@ -5,9 +5,15 @@ use kerberust::user::KerberosUser;
 use kerberust::ticket::KerberosTicket;
 use kerberust::net::KerberosResponse;
 
+const USERNAME : &str = "<user>";
+const DOMAIN : &str = "<domain>";
+const KEY : Vec<u8> = vec![];
+
+const TARGET : &str = "<domain>:88";
+const PATH : &str = "<path>";
+
 fn main() {
-	let key = vec![];
-	let mut user = KerberosUser::from_aes_key("<domain>", "<user>", &key).unwrap();
+	let mut user = KerberosUser::from_aes_key(DOMAIN, USERNAME, &KEY).unwrap();
 	user.generate_encryption_key();
 	
 	let mut builder = KdcRequestBuilder::new();
@@ -15,7 +21,7 @@ fn main() {
 	
 	dbg!(&asreq);
 
-	let response = kerberust::net::send_asreq("<domain>:88", &asreq).unwrap();
+	let response = kerberust::net::send_asreq(TARGET, &asreq).unwrap();
 
 	match response {
 		KerberosResponse::AsRep(asrep) => {
@@ -24,7 +30,7 @@ fn main() {
 			user.set_tgt(ticket);
 			if let Some(tgt) = &user.tgt {
 				let tgt_bytes = tgt.dump_to_kirbi(&user.domain, &user.username);
-				std::fs::write("<path>", tgt_bytes).unwrap();
+				std::fs::write(PATH, tgt_bytes).unwrap();
 				println!("Dumped to file");
 			}
 		},
