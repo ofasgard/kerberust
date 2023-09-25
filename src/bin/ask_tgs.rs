@@ -128,9 +128,6 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 }
 
 fn main() {
-	// Only AES key is supported for now, and it's hardcoded (TODO)
-	let key : Vec<u8> = vec![];
-	
 	let matches = Command::new("AskTgs")
 		.about("A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.")
 		.arg(arg!(--domain <DOMAIN>).required(true))
@@ -139,6 +136,7 @@ fn main() {
 		.arg(arg!(--outfile <PATH>).required(true))
 		.arg(arg!(--kdc <HOST>).required(false))
 		.arg(arg!(--port <PORT>).required(false))
+		.arg(arg!(--key <KEY>).required(false))
 		.get_matches();
 	
 	let domain = matches.get_one::<String>("domain").unwrap();
@@ -156,8 +154,28 @@ fn main() {
 		None => 88
 	};
 	
-	let mut user = KerberosUser::from_aes_key(domain, username, &key).unwrap();
-	user.generate_encryption_key();
+	match matches.get_one::<String>("key") {
+		Some(key_str) => {
+			let key : Vec<u8> = match hex::decode(key_str) {
+				Ok(key) => key,
+				Err(e) => {
+					println!("[-] Failed to decode AES key: {}", e);
+					return;
+				}
+			};
+			let mut user = match KerberosUser::from_aes_key(domain, username, &key) {
+				Ok(user) => user,
+				Err(e) => {
+					println!("[-] {}", e);
+					return;
+				}
+			};
+			user.generate_encryption_key();
+			ask_tgs(&mut user, spn, server, port, path);
+			return;
+		}
+		None => ()
+	}
 	
-	ask_tgs(&mut user, spn, server, port, path);
+	println!("[-] You must provide at least one of: --password (not implemented), --hash (not implemented), or --key.");
 }

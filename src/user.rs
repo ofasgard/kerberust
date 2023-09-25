@@ -5,6 +5,8 @@ use kerberos_crypto::KerberosCipher;
 
 use kerberos_constants::etypes::{AES128_CTS_HMAC_SHA1_96,AES256_CTS_HMAC_SHA1_96,RC4_HMAC};
 
+use std::fmt;
+
 pub struct KerberosUser {
 	pub domain: String,
 	pub username: String,
@@ -142,4 +144,13 @@ impl KerberosUser {
 pub enum KerberosUserError {
 	InvalidHashSize(usize),
 	InvalidKeySize(usize)
+}
+
+impl fmt::Display for KerberosUserError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		match &self {
+			KerberosUserError::InvalidHashSize(size) => write!(f, "Invalid NTLM hash size: {}", size),
+			KerberosUserError::InvalidKeySize(size) => write!(f, "Invalid AES key size: {}", size),
+		}
+	}
 }
