@@ -136,6 +136,7 @@ fn main() {
 		.arg(arg!(--outfile <PATH>).required(true))
 		.arg(arg!(--kdc <HOST>).required(false))
 		.arg(arg!(--port <PORT>).required(false))
+		.arg(arg!(--hash <HASH>).required(false))
 		.arg(arg!(--key <KEY>).required(false))
 		.get_matches();
 	
@@ -153,6 +154,29 @@ fn main() {
 		Some(port_int) => *port_int,
 		None => 88
 	};
+	
+	match matches.get_one::<String>("hash") {
+		Some(hash_str) => {
+			let hash : Vec<u8> = match hex::decode(hash_str) {
+				Ok(key) => key,
+				Err(e) => {
+					println!("[-] Failed to decode NTLM hash: {}", e);
+					return;
+				}
+			};
+			let mut user = match KerberosUser::from_ntlm_hash(domain, username, &hash) {
+				Ok(user) => user,
+				Err(e) => {
+					println!("[-] {}", e);
+					return;
+				}
+			};
+			user.generate_encryption_key();
+			ask_tgs(&mut user, spn, server, port, path);
+			return;
+		}
+		None => ()
+	}
 	
 	match matches.get_one::<String>("key") {
 		Some(key_str) => {
@@ -177,5 +201,5 @@ fn main() {
 		None => ()
 	}
 	
-	println!("[-] You must provide at least one of: --password (not implemented), --hash (not implemented), or --key.");
+	println!("[-] You must provide one of the following: --password (not implemented), --hash, or --key.");
 }
