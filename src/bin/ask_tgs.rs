@@ -157,6 +157,7 @@ fn main() {
 		None => 88
 	};
 	
+	// If a password (with optional salt) was provided.
 	match matches.get_one::<String>("password") {
 		Some(password_str) => {
 			let mut user = match KerberosUser::from_password(domain, username, &password_str) {
@@ -166,9 +167,8 @@ fn main() {
 					return;
 				}
 			};
-			match matches.get_one::<String>("salt") {
-				Some(salt_str) => user.set_salt(salt_str),
-				None => ()
+			if let Some(salt_str) = matches.get_one::<String>("salt") {
+				user.set_salt(salt_str);
 			}
 			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
@@ -177,6 +177,7 @@ fn main() {
 		None => ()
 	}
 	
+	// If an NTLM hash was provided.
 	match matches.get_one::<String>("hash") {
 		Some(hash_str) => {
 			let hash : Vec<u8> = match hex::decode(hash_str) {
@@ -200,6 +201,7 @@ fn main() {
 		None => ()
 	}
 	
+	// If an AES key was provided.
 	match matches.get_one::<String>("key") {
 		Some(key_str) => {
 			let key : Vec<u8> = match hex::decode(key_str) {
