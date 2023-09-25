@@ -136,6 +136,8 @@ fn main() {
 		.arg(arg!(--outfile <PATH>).required(true))
 		.arg(arg!(--kdc <HOST>).required(false))
 		.arg(arg!(--port <PORT>).required(false))
+		.arg(arg!(--password <PASSWORD>).required(false))
+		.arg(arg!(--salt <SALT>).required(false))
 		.arg(arg!(--hash <HASH>).required(false))
 		.arg(arg!(--key <KEY>).required(false))
 		.get_matches();
@@ -154,6 +156,26 @@ fn main() {
 		Some(port_int) => *port_int,
 		None => 88
 	};
+	
+	match matches.get_one::<String>("password") {
+		Some(password_str) => {
+			let mut user = match KerberosUser::from_password(domain, username, &password_str) {
+				Ok(user) => user,
+				Err(e) => {
+					println!("[-] {}", e);
+					return;
+				}
+			};
+			match matches.get_one::<String>("salt") {
+				Some(salt_str) => user.set_salt(salt_str),
+				None => ()
+			}
+			user.generate_encryption_key();
+			ask_tgs(&mut user, spn, server, port, path);
+			return;
+		},
+		None => ()
+	}
 	
 	match matches.get_one::<String>("hash") {
 		Some(hash_str) => {
@@ -174,7 +196,7 @@ fn main() {
 			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
 			return;
-		}
+		},
 		None => ()
 	}
 	
@@ -197,9 +219,9 @@ fn main() {
 			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
 			return;
-		}
+		},
 		None => ()
 	}
 	
-	println!("[-] You must provide one of the following: --password (not implemented), --hash, or --key.");
+	println!("[-] You must provide one of the following: --password, --hash, or --key.");
 }
