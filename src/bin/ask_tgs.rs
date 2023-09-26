@@ -130,16 +130,16 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 fn main() {
 	let matches = Command::new("AskTgs")
 		.about("A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.")
-		.arg(arg!(--domain <DOMAIN>).required(true))
-		.arg(arg!(--user <USER>).required(true))
-		.arg(arg!(--spn <SPN>).required(true))
-		.arg(arg!(--outfile <PATH>).required(true))
-		.arg(arg!(--kdc <HOST>).required(false))
-		.arg(arg!(--port <PORT>).required(false))
-		.arg(arg!(--password <PASSWORD>).required(false))
-		.arg(arg!(--salt <SALT>).required(false))
-		.arg(arg!(--hash <HASH>).required(false))
-		.arg(arg!(--key <KEY>).required(false))
+		.arg(arg!(--domain <DOMAIN>).short('d').required(true).help("Domain/realm to authenticate to."))
+		.arg(arg!(--user <USER>).short('u').required(true).help("Username to authenticate with."))
+		.arg(arg!(--password <PASSWORD>).short('p').required(false).help("Password to authenticate with."))
+		.arg(arg!(--ntlm <HASH>).short('n').required(false).help("NTLM hash to authenticate with."))
+		.arg(arg!(--key <KEY>).short('k').required(false).help("128 or 256-bit AES key to authenticate with."))
+		.arg(arg!(--salt <SALT>).short('s').required(false).help("Custom salt to be used with the password (optional)."))
+		.arg(arg!(--spn <SPN>).short('S').required(true).help("Service principal name to request a ticket for."))
+		.arg(arg!(--outfile <PATH>).short('O').required(true).help("Output path to write the requested ticket to (in KIRBI format)."))
+		.arg(arg!(--kdc <HOST>).short('K').required(false).help("IP address or hostname for the KDC, if different from the domain."))
+		.arg(arg!(--port <PORT>).short('P').required(false).help("Port number to use for the KDC, if different from the default port."))
 		.get_matches();
 	
 	let domain = matches.get_one::<String>("domain").unwrap();
@@ -175,7 +175,7 @@ fn main() {
 	}
 	
 	// If an NTLM hash was provided.
-	match matches.get_one::<String>("hash") {
+	match matches.get_one::<String>("ntlm") {
 		Some(hash_str) => {
 			let hash : Vec<u8> = match hex::decode(hash_str) {
 				Ok(key) => key,
@@ -220,5 +220,5 @@ fn main() {
 		None => ()
 	}
 	
-	println!("[-] You must provide one of the following: --password, --hash, or --key.");
+	println!("[-] You must provide one of the following: --password, --ntlm, or --key.");
 }
