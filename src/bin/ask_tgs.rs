@@ -160,17 +160,14 @@ fn main() {
 	// If a password (with optional salt) was provided.
 	match matches.get_one::<String>("password") {
 		Some(password_str) => {
-			let mut user = match KerberosUser::from_password(domain, username, &password_str) {
+			let salt = matches.get_one::<String>("salt");
+			let mut user = match KerberosUser::from_password(domain, username, &password_str, salt) {
 				Ok(user) => user,
 				Err(e) => {
 					println!("[-] {}", e);
 					return;
 				}
 			};
-			if let Some(salt_str) = matches.get_one::<String>("salt") {
-				user.set_salt(salt_str);
-			}
-			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
 			return;
 		},
@@ -194,7 +191,6 @@ fn main() {
 					return;
 				}
 			};
-			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
 			return;
 		},
@@ -218,7 +214,6 @@ fn main() {
 					return;
 				}
 			};
-			user.generate_encryption_key();
 			ask_tgs(&mut user, spn, server, port, path);
 			return;
 		},

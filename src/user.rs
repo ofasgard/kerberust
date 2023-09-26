@@ -18,8 +18,8 @@ pub struct KerberosUser {
 }
 
 impl KerberosUser {
-	pub fn from_password(domain: &str, username: &str, password: &str) -> Result<KerberosUser,KerberosUserError> {
-		let user = KerberosUser {
+	pub fn from_password(domain: &str, username: &str, password: &str, salt: Option<&String>) -> Result<KerberosUser,KerberosUserError> {
+		let mut user = KerberosUser {
 			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: Key::Secret(password.to_string()),
@@ -28,6 +28,12 @@ impl KerberosUser {
 			custom_salt: None,
 			tgt: None
 		};
+		
+		if let Some(salt_str) = salt {
+			user.set_salt(&salt_str);
+		}
+		
+		user.generate_encryption_key();
 		Ok(user)
 	}
 	
@@ -41,7 +47,7 @@ impl KerberosUser {
 			key[i] = hash[i];
 		}
 	
-		let user = KerberosUser {
+		let mut user = KerberosUser {
 			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: Key::RC4Key(key),
@@ -50,6 +56,8 @@ impl KerberosUser {
 			custom_salt: None,
 			tgt: None
 		};
+		
+		user.generate_encryption_key();
 		Ok(user)
 	}
 	
@@ -81,7 +89,7 @@ impl KerberosUser {
 			}
 		}
 		
-		let user = KerberosUser {
+		let mut user = KerberosUser {
 			domain: domain.to_string().to_ascii_uppercase(),
 			username: username.to_string(),
 			credential: key,
@@ -90,6 +98,8 @@ impl KerberosUser {
 			custom_salt: None,
 			tgt: None
 		};
+		
+		user.generate_encryption_key();
 		Ok(user)
 	}
 	
