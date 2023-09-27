@@ -152,8 +152,16 @@ fn main() {
 		None => domain
 	};
 	
-	let port = match matches.get_one::<i32>("port") {
-		Some(port_int) => *port_int,
+	let port = match matches.get_one::<String>("port") {
+		Some(port_str) => {
+			match port_str.parse::<i32>() {
+				Ok(port_int) => port_int,
+				Err(_) => {
+					println!("[-] Failed to decode '{}' as a port number.", port_str);
+					return;
+				}
+			}
+		},
 		None => 88
 	};
 	
