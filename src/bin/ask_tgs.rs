@@ -87,7 +87,7 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 	let tgsrep = match tgsreq_response {
 		KerberosResponse::TgsRep(tgsrep) => tgsrep,
 		KerberosResponse::KrbError(err) => {
-			println!("[-] Received a Kerberos error in response to the ASREQ.");
+			println!("[-] Received a Kerberos error in response to the TGSREQ.");
 			println!("{}", kdc_err::format_error(&err));
 			return;
 		},
