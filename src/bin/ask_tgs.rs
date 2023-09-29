@@ -101,6 +101,15 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 		}
 	};
 	
+	// Check if we got the ticket we expected, or a referral.
+	let realm_check = tgsrep.ticket.realm.to_string().to_ascii_uppercase() == user.domain.to_string().to_ascii_uppercase();
+	let spn_check = tgsrep.ticket.sname.to_string().to_ascii_uppercase() == spn.to_string().to_ascii_uppercase();
+	if !(realm_check && spn_check) {
+		println!("[-] TGSREP doesn't match TGSREQ, possibly a referral ticket.");
+		println!("Sent SPN: {} | Received SPN: {}", spn.to_string(), tgsrep.ticket.sname.to_string());
+		todo!("Referral tickets not yet implemented!");
+	}
+	
 	// Parse the service ticket from the TGSREP.
 	println!("[+] Received TGSREP!");
 	let service_ticket = match KerberosTicket::from_tgsrep(&tgsrep, &tgt) {
@@ -176,8 +185,7 @@ fn main() {
 					return;
 				}
 			};
-			ask_tgs(&mut user, spn, server, port, path);
-			return;
+			return ask_tgs(&mut user, spn, server, port, path);
 		},
 		None => ()
 	}
@@ -199,8 +207,7 @@ fn main() {
 					return;
 				}
 			};
-			ask_tgs(&mut user, spn, server, port, path);
-			return;
+			return ask_tgs(&mut user, spn, server, port, path);
 		},
 		None => ()
 	}
@@ -222,8 +229,7 @@ fn main() {
 					return;
 				}
 			};
-			ask_tgs(&mut user, spn, server, port, path);
-			return;
+			return ask_tgs(&mut user, spn, server, port, path);
 		},
 		None => ()
 	}
