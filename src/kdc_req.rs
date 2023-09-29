@@ -96,11 +96,11 @@ impl KdcRequestBuilder {
 		self.padata.push(padata);
 	}
 	
-	fn add_apreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket) {
-		// Build an Authenticator for the provided user.
+	fn add_apreq(&mut self, ticket : &KerberosTicket) {
+		// Build an Authenticator for the provided TGT.
 		let mut authenticator = Authenticator::default();
-		authenticator.crealm = user.domain.to_string();
-		authenticator.cname = SPN::NtPrincipal(user.username.to_string()).to_principal_name();
+		authenticator.crealm = ticket.crealm.to_string();
+		authenticator.cname = ticket.cname.clone();
 		
 		// Encrypt the Authenticator with the correct cipher and the session key.
 		let etype = ticket.get_session_key().keytype;
@@ -108,7 +108,7 @@ impl KdcRequestBuilder {
 		let cipher = kerberos_crypto::new_kerberos_cipher(etype).unwrap();
 		let encrypted_authenticator = cipher.encrypt(&session_key, KEY_USAGE_TGS_REQ_AUTHEN, &authenticator.build());
 		let encrypted_data = EncryptedData {
-			etype: user.etype, 
+			etype: etype, 
 			kvno: None,
 			cipher: encrypted_authenticator
 		};
@@ -183,7 +183,7 @@ impl KdcRequestBuilder {
 // TGSREQ
 
 impl KdcRequestBuilder {	
-	fn build_tgsreq_body(&mut self, user : &KerberosUser, spn : &SPN, domain : &str) {
+	fn build_tgsreq_body(&mut self, ticket : &KerberosTicket, spn : &SPN, domain : &str) {
 		// Set KDC options.
 		self.set_kdc_option(CANONICALIZE);
 		self.set_kdc_option(FORWARDABLE);
@@ -204,19 +204,20 @@ impl KdcRequestBuilder {
 		self.set_nonce();
 		
 		// Add desired encryption type, along with a selection of others.
+		let etype = ticket.get_session_key().keytype;
 		self.add_etype(RC4_HMAC);
 		self.add_etype(DES_CBC_MD5);
-		self.add_etype(user.etype);
+		self.add_etype(etype);
 	}
 	
-	fn build_tgsreq_padata(&mut self, user : &KerberosUser, ticket : &KerberosTicket) {
+	fn build_tgsreq_padata(&mut self, ticket : &KerberosTicket) {
 		// Add an APREQ to padata.
-		self.add_apreq(user, ticket);
+		self.add_apreq(ticket);
 	}
 	
-	pub fn build_tgsreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket, spn : &SPN, domain : &str) -> TgsReq {
-		self.build_tgsreq_body(user, spn, domain);
-		self.build_tgsreq_padata(user, ticket);
+	pub fn build_tgsreq(&mut self, ticket : &KerberosTicket, spn : &SPN, domain : &str) -> TgsReq {
+		self.build_tgsreq_body(ticket, spn, domain);
+		self.build_tgsreq_padata(ticket);
 		
 		TgsReq {
 			pvno: PVNO,

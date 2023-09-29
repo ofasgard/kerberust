@@ -71,7 +71,7 @@ fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, outp
 	// Build a TGSREQ request.
 	let mut builder = KdcRequestBuilder::new();
 	let tgt = &user.tgt.as_ref().unwrap();	// We just set the ticket, so it's OK to unwrap.
-	let tgsreq = builder.build_tgsreq(&user, tgt, &spn, &user.domain);
+	let tgsreq = builder.build_tgsreq(tgt, &spn, &user.domain);
 	
 	// Send the TGSREQ request.
 	println!("[+] Sending TGSREQ...");
