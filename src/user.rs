@@ -142,10 +142,10 @@ impl KerberosUser {
 		self.tgt = Some(ticket);
 	}
 	
-	pub fn is_authenticated(&self) -> bool {
+	pub fn get_tgt(&self) -> Result<KerberosTicket,KerberosUserError> {
 		match &self.tgt {
-			Some(_) => true,
-			None => false
+			Some(ticket) => Ok(ticket.clone()),
+			None => Err(KerberosUserError::NotAuthenticated)
 		}
 	}
 }
@@ -153,7 +153,8 @@ impl KerberosUser {
 #[derive(Debug)]
 pub enum KerberosUserError {
 	InvalidHashSize(usize),
-	InvalidKeySize(usize)
+	InvalidKeySize(usize),
+	NotAuthenticated
 }
 
 impl fmt::Display for KerberosUserError {
@@ -161,6 +162,7 @@ impl fmt::Display for KerberosUserError {
 		match &self {
 			KerberosUserError::InvalidHashSize(size) => write!(f, "Invalid NTLM hash size: {}", size),
 			KerberosUserError::InvalidKeySize(size) => write!(f, "Invalid AES key size: {}", size),
+			KerberosUserError::NotAuthenticated => write!(f, "User does not have a TGT.")
 		}
 	}
 }
