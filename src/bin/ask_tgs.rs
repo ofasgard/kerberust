@@ -12,9 +12,8 @@ use clap::arg;
 
 /// A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.
 
-fn ask_tgs(user : &mut KerberosUser, spn_str : &str, server : &str, port : i32, output_path : &str) {
+fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, output_path : &str) {
 	let connection_str = format!("{}:{}", server, port);
-	let spn = SPN::NtSrvInst(spn_str.to_string()); // TODO - make this a parameter for NtEnterprise or NtSrvInst
 
 	// Build an ASREQ request.
 	let mut builder = KdcRequestBuilder::new();
@@ -146,7 +145,8 @@ fn main() {
 		.arg(arg!(--ntlm <HASH>).short('n').required(false).help("NTLM hash to authenticate with."))
 		.arg(arg!(--key <KEY>).short('k').required(false).help("128 or 256-bit AES key to authenticate with."))
 		.arg(arg!(--salt <SALT>).short('s').required(false).help("Custom salt to be used with the password (optional)."))
-		.arg(arg!(--spn <SPN>).short('S').required(true).help("Service principal name to request a ticket for."))
+		.arg(arg!(--"target-spn" <SPN>).short('S').required(false).help("Service principal name to request a ticket for. [HTTP/somedomain.local]"))
+		.arg(arg!(--"target-user" <SPN>).short('U').required(false).help("Username to request a ticket for. [USER@DOMAIN]"))
 		.arg(arg!(--outfile <PATH>).short('O').required(true).help("Output path to write the requested ticket to (in KIRBI format)."))
 		.arg(arg!(--kdc <HOST>).short('K').required(false).help("IP address or hostname for the KDC, if different from the domain."))
 		.arg(arg!(--port <PORT>).short('P').required(false).help("Port number to use for the KDC, if different from the default port."))
@@ -154,8 +154,18 @@ fn main() {
 	
 	let domain = matches.get_one::<String>("domain").unwrap();
 	let username = matches.get_one::<String>("user").unwrap();
-	let spn = matches.get_one::<String>("spn").unwrap();
 	let path = matches.get_one::<String>("outfile").unwrap();
+	
+	let spn = match matches.get_one::<String>("target-spn") {
+		Some(spn_str) => SPN::NtSrvInst(spn_str.to_string()),
+		None => match matches.get_one::<String>("target-user") {
+			Some(user_str) => SPN::NtEnterprise(user_str.to_string()),
+			None => {
+				println!("[-] You must provide one of the following: --target-spn or --target-user.");
+				return;
+			}
+		} 
+	};
 	
 	let server = match matches.get_one::<String>("kdc") {
 		Some(server_str) => server_str,
@@ -186,7 +196,7 @@ fn main() {
 					return;
 				}
 			};
-			return ask_tgs(&mut user, spn, server, port, path);
+			return ask_tgs(&mut user, &spn, server, port, path);
 		},
 		None => ()
 	}
@@ -208,7 +218,7 @@ fn main() {
 					return;
 				}
 			};
-			return ask_tgs(&mut user, spn, server, port, path);
+			return ask_tgs(&mut user, &spn, server, port, path);
 		},
 		None => ()
 	}
@@ -230,7 +240,7 @@ fn main() {
 					return;
 				}
 			};
-			return ask_tgs(&mut user, spn, server, port, path);
+			return ask_tgs(&mut user, &spn, server, port, path);
 		},
 		None => ()
 	}
