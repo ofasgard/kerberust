@@ -23,6 +23,7 @@ use kerberos_constants::message_types::KRB_CRED;
 
 /// Represents a kerberos ticket, including the decrypted data from a KDC response which is required to use it.
 
+#[derive(Clone)]
 pub struct KerberosTicket {
 	pub ticket : Ticket,
 	pub response : EncKdcRepPart
@@ -127,17 +128,6 @@ impl KerberosTicket {
 		};
 		
 		krbcred.build()
-	}
-}
-
-// Implementations
-
-impl Clone for KerberosTicket {
-	fn clone(&self) -> Self {
-		KerberosTicket {
-			ticket: self.ticket.clone(),
-			response: self.response.clone()
-		}
 	}
 }
 
