@@ -193,7 +193,7 @@ impl KdcRequestBuilder {
 // TGSREQ
 
 impl KdcRequestBuilder {	
-	fn build_tgsreq_body(&mut self, user : &KerberosUser, spn : &Vec<String>, domain : &str) {
+	fn build_tgsreq_body(&mut self, user : &KerberosUser, spn : &str, domain : &str) {
 		// Set KDC options.
 		self.set_kdc_option(CANONICALIZE);
 		self.set_kdc_option(FORWARDABLE);
@@ -204,7 +204,8 @@ impl KdcRequestBuilder {
 		self.set_realm(domain);
 		
 		//Set sname to the SPN we want to request.
-		self.set_sname(NT_SRV_INST, spn.to_vec());
+		let spn_vec = spn.split("/").map(|s| s.to_string()).collect();
+		self.set_sname(NT_SRV_INST, spn_vec);
 		
 		// Set expiry dates at some point in the future.
 		let expiry = Utc::now() + Duration::days(90);
@@ -224,7 +225,7 @@ impl KdcRequestBuilder {
 		self.add_apreq(user, ticket);
 	}
 	
-	pub fn build_tgsreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket, spn : &Vec<String>, domain : &str) -> TgsReq {
+	pub fn build_tgsreq(&mut self, user : &KerberosUser, ticket : &KerberosTicket, spn : &str, domain : &str) -> TgsReq {
 		self.build_tgsreq_body(user, spn, domain);
 		self.build_tgsreq_padata(user, ticket);
 		
