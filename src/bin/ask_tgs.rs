@@ -12,7 +12,7 @@ use clap::arg;
 
 /// A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.
 
-fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, output_path : &str) {
+fn request_tgt(user : &mut KerberosUser, server : &str, port : i32) {
 	let connection_str = format!("{}:{}", server, port);
 
 	// Build an ASREQ request.
@@ -67,11 +67,14 @@ fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, outp
 	
 	println!("[+] Successfully decrypted TGT!");
 	user.set_tgt(tgt);
+}
+
+fn request_tgs(tgt : &KerberosTicket, spn : &SPN, domain : &str, server : &str, port : i32, output_path : &str) {
+	let connection_str = format!("{}:{}", server, port);
 	
 	// Build a TGSREQ request.
 	let mut builder = KdcRequestBuilder::new();
-	let tgt = &user.tgt.as_ref().unwrap();	// We just set the ticket, so it's OK to unwrap.
-	let tgsreq = builder.build_tgsreq(tgt, &spn, &user.domain);
+	let tgsreq = builder.build_tgsreq(tgt, spn, domain);
 	
 	// Send the TGSREQ request.
 	println!("[+] Sending TGSREQ...");
@@ -101,15 +104,6 @@ fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, outp
 		}
 	};
 	
-	// Check if we got the ticket we expected, or a referral.
-	let realm_check = tgsrep.ticket.realm.to_string().to_ascii_uppercase() == user.domain.to_string().to_ascii_uppercase();
-	let spn_check = tgsrep.ticket.sname.to_string().to_ascii_uppercase() == spn.to_string().to_ascii_uppercase();
-	if !(realm_check && spn_check) {
-		println!("[-] TGSREP doesn't match TGSREQ, possibly a referral ticket.");
-		println!("Sent SPN: {} | Received SPN: {}", spn.to_string(), tgsrep.ticket.sname.to_string());
-		todo!("Referral tickets not yet implemented!");
-	}
-	
 	// Parse the service ticket from the TGSREP.
 	println!("[+] Received TGSREP!");
 	let service_ticket = match KerberosTicket::from_tgsrep(&tgsrep, &tgt) {
@@ -128,12 +122,32 @@ fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, outp
 		}
 	};
 	
+	// Check if we got the ticket we expected, or a referral.
+	let realm_check = tgsrep.ticket.realm.to_string().to_ascii_uppercase() == domain.to_string().to_ascii_uppercase();
+	let spn_check = tgsrep.ticket.sname.to_string().to_ascii_uppercase() == spn.to_string().to_ascii_uppercase();
+	if !(realm_check && spn_check) {
+		println!("[-] TGSREP doesn't match TGSREQ, possibly a referral ticket.");
+		println!("Sent SPN: {} | Received SPN: {}", spn.to_string(), tgsrep.ticket.sname.to_string());
+		todo!("Referral tickets not yet implemented!");
+	}
+	
 	// Finally, dump the service ticket to a file.
 	println!("[+] Successfully parsed service ticket!");
-	let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn.to_string());
+	let service_ticket_bytes = service_ticket.dump_to_kirbi(domain, &spn.to_string());
 	std::fs::write(output_path, service_ticket_bytes).unwrap();
 	
 	println!("[!] Written to '{}'", output_path);
+}
+
+fn ask_tgs(user : &mut KerberosUser, spn : &SPN, server : &str, port : i32, output_path : &str) {
+	// Request a TGT with our user credentials.
+	request_tgt(user, server, port);
+	
+	// Check if the TGT was successfully retrieved, then request the service ticket.
+	match user.get_tgt() {
+		Ok(tgt) => request_tgs(&tgt, spn, &user.domain, server, port, output_path),
+		Err(_) => println!("[-] Failed to retrieve a TGT with the provided user credentials.")
+	}
 }
 
 fn main() {
