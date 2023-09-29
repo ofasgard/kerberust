@@ -127,7 +127,6 @@ fn request_tgs(tgt : &KerberosTicket, spn : &SPN, domain : &str, server : &str, 
 	let spn_check = tgsrep.ticket.sname.to_string().to_ascii_uppercase() == spn.to_string().to_ascii_uppercase();
 	if !(realm_check && spn_check) {
 		println!("[?] TGSREP doesn't match TGSREQ, we are being referred!");
-		println!("[+] Following the referral...");
 		let target_domain = match service_ticket.response.sname.name_string.get(1) {
 			Some(domain_str) => domain_str,
 			None => {
@@ -135,6 +134,7 @@ fn request_tgs(tgt : &KerberosTicket, spn : &SPN, domain : &str, server : &str, 
 				return;
 			}
 		};
+		println!("[+] Following the referral to '{}'...", &target_domain);
 		return request_tgs(&service_ticket, spn, &target_domain, &target_domain, 88, output_path);
 	}
 	
