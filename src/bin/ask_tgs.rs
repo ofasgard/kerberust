@@ -1,6 +1,7 @@
 use kerberust::kdc_err;
 
 use kerberust::kdc_req::KdcRequestBuilder;
+use kerberust::principal::SPN;
 use kerberust::user::KerberosUser;
 use kerberust::ticket::KerberosTicket;
 use kerberust::ticket::KerberosTicketError;
@@ -11,8 +12,9 @@ use clap::arg;
 
 /// A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.
 
-fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, output_path : &str) {
+fn ask_tgs(user : &mut KerberosUser, spn_str : &str, server : &str, port : i32, output_path : &str) {
 	let connection_str = format!("{}:{}", server, port);
+	let spn = SPN::NtSrvInst(spn_str.to_string()); // TODO - make this a parameter for NtEnterprise or NtSrvInst
 
 	// Build an ASREQ request.
 	let mut builder = KdcRequestBuilder::new();
@@ -129,7 +131,7 @@ fn ask_tgs(user : &mut KerberosUser, spn : &str, server : &str, port : i32, outp
 	
 	// Finally, dump the service ticket to a file.
 	println!("[+] Successfully parsed service ticket!");
-	let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn);
+	let service_ticket_bytes = service_ticket.dump_to_kirbi(&user.domain, &spn.to_string());
 	std::fs::write(output_path, service_ticket_bytes).unwrap();
 	
 	println!("[!] Written to '{}'", output_path);
