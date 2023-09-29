@@ -122,13 +122,20 @@ fn request_tgs(tgt : &KerberosTicket, spn : &SPN, domain : &str, server : &str, 
 		}
 	};
 	
-	// Check if we got the ticket we expected, or a referral.
+	// Check if we got the ticket we expected or a referral.
 	let realm_check = tgsrep.ticket.realm.to_string().to_ascii_uppercase() == domain.to_string().to_ascii_uppercase();
 	let spn_check = tgsrep.ticket.sname.to_string().to_ascii_uppercase() == spn.to_string().to_ascii_uppercase();
 	if !(realm_check && spn_check) {
-		println!("[-] TGSREP doesn't match TGSREQ, possibly a referral ticket.");
-		println!("Sent SPN: {} | Received SPN: {}", spn.to_string(), tgsrep.ticket.sname.to_string());
-		todo!("Referral tickets not yet implemented!");
+		println!("[?] TGSREP doesn't match TGSREQ, we are being referred!");
+		println!("[+] Following the referral...");
+		let target_domain = match service_ticket.response.sname.name_string.get(1) {
+			Some(domain_str) => domain_str,
+			None => {
+				println!("[-] Failed to parse the referral domain from the TGT.");
+				return;
+			}
+		};
+		return request_tgs(&service_ticket, spn, &target_domain, &target_domain, 88, output_path);
 	}
 	
 	// Finally, dump the service ticket to a file.
