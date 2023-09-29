@@ -146,7 +146,7 @@ fn main() {
 		.arg(arg!(--key <KEY>).short('k').required(false).help("128 or 256-bit AES key to authenticate with."))
 		.arg(arg!(--salt <SALT>).short('s').required(false).help("Custom salt to be used with the password (optional)."))
 		.arg(arg!(--"target-spn" <SPN>).short('S').required(false).help("Service principal name to request a ticket for. [HTTP/somedomain.local]"))
-		.arg(arg!(--"target-user" <SPN>).short('U').required(false).help("Username to request a ticket for. [USER@DOMAIN]"))
+		.arg(arg!(--"target-user" <SPN>).short('U').required(false).help("Username to request a ticket for. [USER@SOMEDOMAIN.LOCAL]"))
 		.arg(arg!(--outfile <PATH>).short('O').required(true).help("Output path to write the requested ticket to (in KIRBI format)."))
 		.arg(arg!(--kdc <HOST>).short('K').required(false).help("IP address or hostname for the KDC, if different from the domain."))
 		.arg(arg!(--port <PORT>).short('P').required(false).help("Port number to use for the KDC, if different from the default port."))
@@ -156,6 +156,7 @@ fn main() {
 	let username = matches.get_one::<String>("user").unwrap();
 	let path = matches.get_one::<String>("outfile").unwrap();
 	
+	// The tool accepts either an SPN ("HTTP/somedomain.local") or a domain-qualified username ("USER@SOMEDOMAIN.LOCAL") as a principal.
 	let spn = match matches.get_one::<String>("target-spn") {
 		Some(spn_str) => SPN::NtSrvInst(spn_str.to_string()),
 		None => match matches.get_one::<String>("target-user") {
