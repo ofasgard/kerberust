@@ -26,7 +26,9 @@ use kerberos_constants::message_types::KRB_CRED;
 #[derive(Clone)]
 pub struct KerberosTicket {
 	pub ticket : Ticket,
-	pub response : EncKdcRepPart
+	pub response : EncKdcRepPart,
+	pub crealm : String,
+	pub cname : PrincipalName
 }
 
 // Constructors
@@ -50,7 +52,9 @@ impl KerberosTicket {
 		// Extract the ticket and the decrypted session key.
 		let ticket = KerberosTicket {
 			ticket: asrep.ticket.clone(),
-			response: enc_as_rep_part.into()
+			response: enc_as_rep_part.into(),
+			crealm: asrep.crealm.to_string(),
+			cname: asrep.cname.clone()
 		};
 				
 		Ok(ticket)
@@ -79,7 +83,9 @@ impl KerberosTicket {
 		// Extract the ticket and decrypted session key.
 		let ticket = KerberosTicket {
 			ticket: tgsrep.ticket.clone(),
-			response: enc_tgs_rep_part.into()
+			response: enc_tgs_rep_part.into(),
+			crealm: tgsrep.crealm.to_string(),
+			cname: tgsrep.cname.clone()
 		};		
 		
 		Ok(ticket)
