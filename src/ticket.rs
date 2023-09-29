@@ -130,6 +130,17 @@ impl KerberosTicket {
 	}
 }
 
+// Implementations
+
+impl Clone for KerberosTicket {
+	fn clone(&self) -> Self {
+		KerberosTicket {
+			ticket: self.ticket.clone(),
+			response: self.response.clone()
+		}
+	}
+}
+
 #[derive(Debug)]
 pub enum KerberosTicketError {
 	DecryptionError(kerberos_crypto::Error),
