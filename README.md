@@ -1,6 +1,6 @@
 # Kerberust
 
-A simple kerberoasting tool written from scratch in Rust. Currently compiles to a single binary, `ask_tgs` which can be used to request tickets directly from a domain controller. 
+A simple kerberoasting tool written from scratch in Rust. Currently compiles to a single binary, `ask_tgs`, which can be used to request tickets directly from a domain controller. 
 
 ```text
 A tool to request a specific service ticket from the KDC and dump it to a KIRBI file.
@@ -24,4 +24,4 @@ Options:
 
 To install, simply invoke `cargo build --release` or `cargo install --path .` to install it to your user path.
 
-Relies on the `kerberos_asn1` under the hood. Support for AS-REP roasting is planned for the future.
+Relies on the [kerberos_asn1](https://crates.io/crates/kerberos_asn1) crate under the hood. Support for AS-REP roasting is planned for the future.
